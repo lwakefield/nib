@@ -1,0 +1,13 @@
+name: nib
+version: 0.1.0
+
+authors:
+  - Lawrence Wakefield <lawrence@iamlawrence.me>
+
+targets:
+  nib:
+    main: src/nib.cr
+
+crystal: 0.26.1
+
+license: MIT
