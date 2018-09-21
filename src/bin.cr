@@ -74,6 +74,11 @@ else
     parser.unknown_args { |args| content = args.join " " }
     parser.parse ARGV
 
+    if tags.empty?
+        puts "please specify some tags"
+        exit(1)
+    end
+
     path = File.join DEFAULT_PATH, UUID.random.to_s
     if content == ""
         editor = ENV.fetch "EDITOR", "vim"
@@ -85,9 +90,13 @@ else
             output: STDOUT,
             error: STDERR
         )
-        unless status.success?
+        if status.success? == false
             puts "error writing file"
             File.delete path
+            exit(1)
+        end
+        if File.exists?(path) == false || File.size(path) == 0
+            puts "no content written"
             exit(1)
         end
     else
