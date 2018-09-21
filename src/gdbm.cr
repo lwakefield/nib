@@ -27,11 +27,13 @@ lib LibGDBM
         REPLACE = 1
     end
 
-    fun open = gdbm_open(name : LibC::Char*, block_size : Int32, flags : Int32, mode : Int32, fatal_func : LibC::Char* -> Void) : GDBMFile
-    fun close = gdbm_close(db : GDBMFile)
-    fun store = gdbm_store(db : GDBMFile, key : Datum, content : Datum, flag : Int32)
-    fun fetch = gdbm_fetch(db : GDBMFile, key : Datum) : Datum
-    fun delete = gdbm_delete(db : GDBMFile, key : Datum)
+    fun open      = gdbm_open(name : LibC::Char*, block_size : Int32, flags : Int32, mode : Int32, fatal_func : LibC::Char* -> Void) : GDBMFile
+    fun close     = gdbm_close(db : GDBMFile)
+    fun store     = gdbm_store(db : GDBMFile, key : Datum, content : Datum, flag : Int32)
+    fun fetch     = gdbm_fetch(db : GDBMFile, key : Datum) : Datum
+    fun delete    = gdbm_delete(db : GDBMFile, key : Datum)
+    fun first_key = gdbm_firstkey(db : GDBMFile) : Datum
+    fun next_key  = gdbm_nextkey(db : GDBMFile, key : Datum) : Datum
 end
 
 class Datum
@@ -66,8 +68,17 @@ class GDBM
         Datum.to_s datum
     end
 
+    def each (&block)
+        key = LibGDBM.first_key @instance
+        while key.dptr.null? == false
+            val = LibGDBM.fetch @instance, key
+            yield Datum.to_s(key), Datum.to_s(val)
+            key = LibGDBM.next_key @instance, key
+        end
+    end
+
     def delete (key)
-        LibGDBM.delete Datum.from_s(key)
+        LibGDBM.delete @instance, Datum.from_s(key)
     end
 
     def close

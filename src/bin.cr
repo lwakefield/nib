@@ -21,6 +21,22 @@ if ARGV.first? == "tag"
     files.map! { |f| File.expand_path f }
 
     tag_files files, tags
+elsif ARGV.first? == "reindex"
+    files = [] of String
+    db = GDBM.new DB_PATH
+
+    # clean up any dead files
+    db.each do |k, v|
+        if k.starts_with? "tag-files"
+            files = v.split(", ").select { |p| File.exists? p }
+            db[k] = files.join ", "
+        elsif k.starts_with? "file-tags"
+            _, _, path = k.partition "file-tags-"
+            next if File.exists? path
+
+            db.delete k
+        end
+    end
 elsif ["ls", "cat"].includes? ARGV.first?
     parser = OptionParser.new
     tags = [] of String
@@ -94,4 +110,3 @@ end
 def tag_file (path : String, tags = [] of String)
     tag_files([ path ], tags)
 end
-
