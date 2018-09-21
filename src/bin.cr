@@ -4,11 +4,7 @@ require "option_parser"
 require "process"
 require "uuid"
 
-require "./gdbm"
-
-DEFAULT_PATH = ENV.fetch "NIB_PATH", File.expand_path "~/.nib/"
-Dir.mkdir_p DEFAULT_PATH
-DB_PATH = ENV.fetch "NIB_DB", File.expand_path "~/.nib.db"
+require "./nib"
 
 if ARGV.first? == "tag"
     parser = OptionParser.new
@@ -20,23 +16,9 @@ if ARGV.first? == "tag"
 
     files.map! { |f| File.expand_path f }
 
-    tag_files files, tags
+    Nib.tag_files files, tags
 elsif ARGV.first? == "reindex"
-    files = [] of String
-    db = GDBM.new DB_PATH
-
-    # clean up any dead files
-    db.each do |k, v|
-        if k.starts_with? "tag-files"
-            files = v.split(", ").select { |p| File.exists? p }
-            db[k] = files.join ", "
-        elsif k.starts_with? "file-tags"
-            _, _, path = k.partition "file-tags-"
-            next if File.exists? path
-
-            db.delete k
-        end
-    end
+    Nib.reindex
 elsif ["ls", "cat"].includes? ARGV.first?
     parser = OptionParser.new
     tags = [] of String
@@ -47,30 +29,16 @@ elsif ["ls", "cat"].includes? ARGV.first?
 
     tags -= options
 
-    # TODO default tags to _all_ tags if it is empty
-
-    db = GDBM.new DB_PATH
-    files = [] of String
-
-    if tags.any?
-        files = tags.reduce([] of String) do |acc, tag|
-            acc += db["tag-files-#{tag}"].split ", "
-        end.uniq!
-    else
-        db.each do |k, v|
-            next unless k.starts_with? "tag-files"
-            files.concat v.split ", "
-        end
-        files.uniq!
-    end
-
+    files = tags.empty? ? Nib.all_files : Nib.files_with_tags tags
 
     puts `#{ARGV.first} #{options.join " "} #{files.join " "}`
 else
     parser = OptionParser.new
     tags = [] of String
+    last = false
     content = ""
     parser.on "-t <tag>", "Tag a file" { |t| tags << t }
+    parser.on "--last", "Change the most recently modified matching file" { last = true}
     parser.unknown_args { |args| content = args.join " " }
     parser.parse ARGV
 
@@ -79,7 +47,7 @@ else
         exit(1)
     end
 
-    path = File.join DEFAULT_PATH, UUID.random.to_s
+    path = File.join Nib::PATH, UUID.random.to_s
     if content == ""
         editor = ENV.fetch "EDITOR", "vim"
         status = Process.run(
@@ -103,30 +71,6 @@ else
         File.write path, content
     end
 
-    tag_file path, tags
+    Nib.tag_file path, tags
     puts "wrote to #{path}"
-end
-
-def tag_files (files = [] of String, tags = [] of String)
-    db = GDBM.new DB_PATH
-
-    files.each do |path|
-        if t = db["file-tags-#{path}"]?
-            db["file-tags-#{path}"] = t.split(", ").concat(tags).uniq.join ", "
-        else
-            db["file-tags-#{path}"] = tags.join ", "
-        end
-    end
-
-    tags.each do |tag|
-        if f = db["tag-files-#{tag}"]?
-                db["tag-files-#{tag}"] = f.split(", ").concat(files).uniq.join ", "
-        else
-            db["tag-files-#{tag}"] = files.join ", "
-        end
-    end
-end
-
-def tag_file (path : String, tags = [] of String)
-    tag_files([ path ], tags)
 end
