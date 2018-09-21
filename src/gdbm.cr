@@ -2,9 +2,9 @@
 lib LibGDBM
     type GDBMFile = Void*
 
-        struct Datum
-            dptr : LibC::Char*
-                dsize : Int32
+    struct Datum
+        dptr : LibC::Char*
+        dsize : Int32
     end
 
     enum OpenFlags
