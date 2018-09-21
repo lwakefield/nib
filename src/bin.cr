@@ -50,9 +50,20 @@ elsif ["ls", "cat"].includes? ARGV.first?
     # TODO default tags to _all_ tags if it is empty
 
     db = GDBM.new DB_PATH
-    files = tags.reduce([] of String) do |acc, tag|
-        acc += db["tag-files-#{tag}"].split ", "
-    end.uniq!
+    files = [] of String
+
+    if tags.any?
+        files = tags.reduce([] of String) do |acc, tag|
+            acc += db["tag-files-#{tag}"].split ", "
+        end.uniq!
+    else
+        db.each do |k, v|
+            next unless k.starts_with? "tag-files"
+            files.concat v.split ", "
+        end
+        files.uniq!
+    end
+
 
     puts `#{ARGV.first} #{options.join " "} #{files.join " "}`
 else
